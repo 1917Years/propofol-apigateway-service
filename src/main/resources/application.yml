@@ -5,8 +5,12 @@ spring:
   application:
     name: apigateway-service
   config:
-    import: application-secret.yml
+    import: optional:configserver:http://localhost:8888
+  profiles:
+    active: dev
   cloud:
+    config:
+      name: secret
     gateway:
       routes:
         # user-service routing
@@ -14,8 +18,16 @@ spring:
         - id: user-service
           uri: lb://USER-SERVICE
           predicates:
-            - Path=/user-service/api/v1/auth/**
+            - Path=/user-service/auth/**
             - Method=POST
+          filters:
+            - RemoveRequestHeader=Cookie
+            - RewritePath=/user-service/(?<segment>.*), /$\{segment}
+        - id: user-service
+          uri: lb://USER-SERVICE
+          predicates:
+            - Path=/user-service/oauth2/**
+            - Method=GET
           filters:
             - RemoveRequestHeader=Cookie
             - RewritePath=/user-service/(?<segment>.*), /$\{segment}
