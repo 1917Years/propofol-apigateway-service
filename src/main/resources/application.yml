@@ -26,6 +26,14 @@ spring:
         - id: user-service
           uri: lb://USER-SERVICE
           predicates:
+            - Path=/user-service/auth/refresh
+            - Method=GET
+          filters:
+            - RemoveRequestHeader=Cookie
+            - RewritePath=/user-service/(?<segment>.*), /$\{segment}
+        - id: user-service
+          uri: lb://USER-SERVICE
+          predicates:
             - Path=/user-service/oauth2/**
             - Method=GET
           filters:
@@ -41,6 +49,17 @@ spring:
             - RemoveRequestHeader=Cookie
             - JwtFilter
             - RewritePath=/user-service/(?<segment>.*), /$\{segment}
+        #til-service routing
+        # Jwt Filter O
+        - id: til-service
+          uri: lb://USER-SERVICE
+          predicates:
+            - Path=/til-service/api/v1/boards/**
+            - Method=GET, POST, PUT, PATCH, DELETE
+          filters:
+            - RemoveRequestHeader=Cookie
+            - JwtFilter
+            - RewritePath=/til-service/(?<segment>.*), /$\{segment}
 
 eureka:
   client:
