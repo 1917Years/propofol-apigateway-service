@@ -5,7 +5,7 @@ spring:
   application:
     name: apigateway-service
   config:
-    import: optional:configserver:http://localhost:8888
+    import: optional:configserver:http://ec2-15-164-164-245.ap-northeast-2.compute.amazonaws.com:8888
   profiles:
     active: dev
   cloud:
