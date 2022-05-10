@@ -39,7 +39,6 @@ public class JwtFilter extends AbstractGatewayFilterFactory<JwtFilter.Config> {
     public GatewayFilter apply(Config config) {
         return ((exchange, chain) -> {
             ServerHttpRequest request = exchange.getRequest();
-            ServerHttpResponse response = exchange.getResponse();
 
             HttpHeaders headers = request.getHeaders();
             if(!headers.containsKey(HttpHeaders.AUTHORIZATION)){
@@ -87,6 +86,7 @@ public class JwtFilter extends AbstractGatewayFilterFactory<JwtFilter.Config> {
         try {
             byte[] bytes = errorMessage.getBytes(StandardCharsets.UTF_8);
             response.setStatusCode(httpStatus);
+            // TODO ObjectMapper로 JSON -> String
             DataBuffer dataBuffer = response.bufferFactory().wrap(bytes);
             return response.writeWith(Flux.just(dataBuffer));
         }catch (Exception e){
