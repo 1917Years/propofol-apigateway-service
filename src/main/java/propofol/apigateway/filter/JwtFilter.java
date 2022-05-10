@@ -1,6 +1,7 @@
 package propofol.apigateway.filter;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -14,6 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -21,8 +23,8 @@ import reactor.core.publisher.Mono;
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
 
-@Component
 @Slf4j
+@Component
 public class JwtFilter extends AbstractGatewayFilterFactory<JwtFilter.Config> {
 
     Environment env;
@@ -37,7 +39,6 @@ public class JwtFilter extends AbstractGatewayFilterFactory<JwtFilter.Config> {
     public GatewayFilter apply(Config config) {
         return ((exchange, chain) -> {
             ServerHttpRequest request = exchange.getRequest();
-            ServerHttpResponse response = exchange.getResponse();
 
             HttpHeaders headers = request.getHeaders();
             if(!headers.containsKey(HttpHeaders.AUTHORIZATION)){
@@ -47,28 +48,37 @@ public class JwtFilter extends AbstractGatewayFilterFactory<JwtFilter.Config> {
             String authorization = headers.get(HttpHeaders.AUTHORIZATION).get(0);
             String token = authorization.replace("Bearer ", "");
 
-            if(!isValid(token, exchange)){
-                return onError(exchange, "Not Validate Jwt Token", HttpStatus.UNAUTHORIZED);
+            String message = isValid(token, headers);
+            if(StringUtils.hasText(message)){
+                return onError(exchange, message, HttpStatus.BAD_REQUEST);
             }
 
             return chain.filter(exchange);
         });
     }
 
-    private boolean isValid(String token, ServerWebExchange exchange) {
-        String subject = null;
-
+    private String isValid(String token, HttpHeaders headers) {
         String secretKey = env.getProperty("token.secret");
         byte[] bytes = secretKey.getBytes(StandardCharsets.UTF_8);
         key = Keys.hmacShaKeyFor(bytes);
 
         JwtParser jwtParser = Jwts.parserBuilder().setSigningKey(key).build();
-        Claims claims = jwtParser.parseClaimsJws(token).getBody();
-        subject = claims.getSubject();
 
-        if(subject == null) return false;
+        String subject = null;
 
-        return true;
+        // 토큰 유효 기간 확인
+        try{
+            Claims claims = jwtParser.parseClaimsJws(token).getBody();
+            subject = claims.getSubject();
+        }catch (Exception e){
+            if(e instanceof ExpiredJwtException){
+                return "Please RefreshToken.";
+            }
+        }
+
+        if(!StringUtils.hasText(subject)) return "Not Validate Jwt Token";
+
+        return null;
     }
 
     private Mono<Void> onError(ServerWebExchange exchange, String errorMessage, HttpStatus httpStatus) {
@@ -76,6 +86,7 @@ public class JwtFilter extends AbstractGatewayFilterFactory<JwtFilter.Config> {
         try {
             byte[] bytes = errorMessage.getBytes(StandardCharsets.UTF_8);
             response.setStatusCode(httpStatus);
+            // TODO ObjectMapper로 JSON -> String
             DataBuffer dataBuffer = response.bufferFactory().wrap(bytes);
             return response.writeWith(Flux.just(dataBuffer));
         }catch (Exception e){
@@ -84,6 +95,6 @@ public class JwtFilter extends AbstractGatewayFilterFactory<JwtFilter.Config> {
         }
     }
 
-    static class Config{
+    public static class Config{
     }
 }

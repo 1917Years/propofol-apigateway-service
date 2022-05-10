@@ -5,7 +5,7 @@ spring:
   application:
     name: apigateway-service
   config:
-    import: optional:configserver:http://localhost:8888
+    import: optional:configserver:http://ec2-15-164-164-245.ap-northeast-2.compute.amazonaws.com:8888
   profiles:
     active: dev
   cloud:
@@ -20,6 +20,14 @@ spring:
           predicates:
             - Path=/user-service/auth/**
             - Method=POST
+          filters:
+            - RemoveRequestHeader=Cookie
+            - RewritePath=/user-service/(?<segment>.*), /$\{segment}
+        - id: user-service
+          uri: lb://USER-SERVICE
+          predicates:
+            - Path=/user-service/auth/refresh
+            - Method=GET
           filters:
             - RemoveRequestHeader=Cookie
             - RewritePath=/user-service/(?<segment>.*), /$\{segment}
@@ -41,6 +49,17 @@ spring:
             - RemoveRequestHeader=Cookie
             - JwtFilter
             - RewritePath=/user-service/(?<segment>.*), /$\{segment}
+        #til-service routing
+        # Jwt Filter O
+        - id: til-service
+          uri: lb://USER-SERVICE
+          predicates:
+            - Path=/til-service/api/v1/boards/**
+            - Method=GET, POST, PUT, PATCH, DELETE
+          filters:
+            - RemoveRequestHeader=Cookie
+            - JwtFilter
+            - RewritePath=/til-service/(?<segment>.*), /$\{segment}
 
 eureka:
   client:
