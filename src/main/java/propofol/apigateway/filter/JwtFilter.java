@@ -1,5 +1,6 @@
 package propofol.apigateway.filter;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtParser;
@@ -12,11 +13,13 @@ import org.springframework.core.env.Environment;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ServerWebExchange;
+import propofol.apigateway.filter.dto.ResponseDto;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -84,9 +87,12 @@ public class JwtFilter extends AbstractGatewayFilterFactory<JwtFilter.Config> {
     private Mono<Void> onError(ServerWebExchange exchange, String errorMessage, HttpStatus httpStatus) {
         ServerHttpResponse response = exchange.getResponse();
         try {
-            byte[] bytes = errorMessage.getBytes(StandardCharsets.UTF_8);
             response.setStatusCode(httpStatus);
-            // TODO ObjectMapper로 JSON -> String
+            response.getHeaders().set("Content-Type", MediaType.APPLICATION_JSON_VALUE);
+            ResponseDto<String> responseDto =
+                    new ResponseDto<>(httpStatus.value(), "fail", "api-gateway 오류", errorMessage);
+            ObjectMapper objectMapper = new ObjectMapper();
+            byte[] bytes = objectMapper.writeValueAsBytes(responseDto);
             DataBuffer dataBuffer = response.bufferFactory().wrap(bytes);
             return response.writeWith(Flux.just(dataBuffer));
         }catch (Exception e){
